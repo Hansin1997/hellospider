@@ -14,13 +14,12 @@ type Queue interface {
 type RbQueue struct {
 	ExchangeName string
 	QueueName    string
+	RoutingKey   string
 	conn         *amqp.Connection
 	channel      *amqp.Channel
 }
 
-const routingKey = "spider-worker"
-
-func newRbQueue(url string, exchangeName string, queueName string) (*RbQueue, error) {
+func newRbQueue(url string, exchangeName string, queueName string, routingKey string) (*RbQueue, error) {
 	conn, err := amqp.Dial(url)
 	if err != nil {
 		return nil, err
@@ -44,6 +43,7 @@ func newRbQueue(url string, exchangeName string, queueName string) (*RbQueue, er
 	q := &RbQueue{
 		exchangeName,
 		queueName,
+		routingKey,
 		conn,
 		ch,
 	}
@@ -52,7 +52,7 @@ func newRbQueue(url string, exchangeName string, queueName string) (*RbQueue, er
 
 func (q RbQueue) Publish(content string) error {
 	return q.channel.Publish(q.ExchangeName,
-		routingKey,
+		q.RoutingKey,
 		false,
 		false,
 		amqp.Publishing{

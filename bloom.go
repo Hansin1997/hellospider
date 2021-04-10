@@ -33,7 +33,11 @@ type RedisBloomFilter struct {
 func newRedisBloom(host string, name string, auth string, filterName string) RedisBloomFilter {
 	filter := new(RedisBloomFilter)
 	filter.filterName = filterName
-	filter.client = redisbloom.NewClient(host, name, &auth)
+	var au *string = nil
+	if auth != "" {
+		au = &auth
+	}
+	filter.client = redisbloom.NewClient(host, name, au)
 	return *filter
 }
 

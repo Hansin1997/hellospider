@@ -1,9 +1,25 @@
 {
-    "redisHost": "192.168.199.216:30005",
-    "redisAuth": null,
-    "redisClientName": "spider",
-    "filerName": "spider",
-    "rabbitUrl": "amqp://hansin:123456@instance-2:30030/",
-    "rabbitExchange": "spider",
-    "rabbitQueue": "spider-work"
+    "redis": {
+        "host": "instance-2:30005",
+        "auth": null,
+        "client": "spider",
+        "filter": "spider"
+    },
+    "rabbitMq": {
+        "url": "amqp://hansin:123456@instance-2:30030/",
+        "exchange": "spider",
+        "queue": "spider-work",
+        "routingKey": "spider-work"
+    },
+    "elasticsearch": {
+        "address": [
+            "http://instance-2:30101"
+        ],
+        "username": "hansin",
+        "password": "123456",
+        "index": "spider"
+    },
+    "seeds": [
+    ],
+    "reset": true
 }

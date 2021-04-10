@@ -10,6 +10,8 @@ type Config struct {
 	Redis         RedisBloomConfig    `json:"redis"`
 	RabbitMq      RabbitMqConfig      `json:"rabbitMq"`
 	Elasticsearch ElasticsearchConfig `json:"elasticsearch"`
+	Seeds         []string            `json:"seeds"`
+	Reset         bool                `json:"reset"`
 }
 
 type RedisBloomConfig struct {
@@ -23,12 +25,14 @@ type ElasticsearchConfig struct {
 	Address  []string `json:"address"`
 	Username string   `json:"username"`
 	Password string   `json:"password"`
+	Index    string   `json:"index"`
 }
 
 type RabbitMqConfig struct {
-	Url      string `json:"url"`
-	Exchange string `json:"exchange"`
-	Queue    string `json:"queue"`
+	Url        string `json:"url"`
+	Exchange   string `json:"exchange"`
+	Queue      string `json:"queue"`
+	RoutingKey string `json:"routingKey"`
 }
 
 func loadConfig(path string) Config {
