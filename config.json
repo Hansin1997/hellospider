@@ -23,8 +23,9 @@
         "html",
         "plain"
     ],
+    "workers": 8,
     "seeds": [
         "https://qq.com/"
     ],
-    "reset": true
+    "reset": false
 }
