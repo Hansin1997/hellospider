@@ -19,8 +19,12 @@
         "password": "123456",
         "index": "spider"
     },
+    "accepts": [
+        "html",
+        "plain"
+    ],
     "seeds": [
         "https://qq.com/"
     ],
-    "reset": false
+    "reset": true
 }

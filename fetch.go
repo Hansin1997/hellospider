@@ -24,24 +24,38 @@ type Fetcher interface {
 }
 
 type DefaultFetcher struct {
+	accepts []string
 }
 
-func newDefaultFetcher() DefaultFetcher {
-	return DefaultFetcher{}
+func newDefaultFetcher(accepts []string) DefaultFetcher {
+	return DefaultFetcher{accepts}
 }
 
-func getCharset(header http.Header) string {
+func checkContentType(header http.Header, accepts []string) (isAccept bool, conentCharset string) {
 	if header != nil {
 		items := strings.Split(header.Get("Content-Type"), ";")
-		for _, item := range items {
-			item = strings.TrimSpace(item)
-			if strings.HasPrefix(item, "charset=") {
-				return strings.ToLower(item[8:])
+		if len(items) < 2 {
+			return false, ""
+		}
+		contentType := items[0]
+		if strings.HasPrefix(contentType, "text/") {
+			contentType = contentType[5:]
+			for _, accept := range accepts {
+				if accept == contentType {
+					isAccept = true
+					break
+				}
 			}
 		}
+		for _, item := range items[1:] {
+			item = strings.TrimSpace(item)
+			if strings.HasPrefix(item, "charset=") {
+				return isAccept, strings.ToLower(item[8:])
+			}
+		}
+		return isAccept, "utf-8"
 	}
-
-	return "utf-8"
+	return false, ""
 }
 
 func getDecoder(charset string) (bool, transform.Transformer) {
@@ -64,17 +78,20 @@ func getDecoder(charset string) (bool, transform.Transformer) {
 
 func (f DefaultFetcher) Fetch(targetUrl string) (doc *Document, urls []string, success bool, err error) {
 	resp, err := http.Get(targetUrl)
-	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return nil, nil, false, nil
-	}
 	if err != nil {
 		return nil, nil, false, err
 	}
-	contentCharset := getCharset(resp.Header)
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return nil, nil, false, nil
+	}
+	isAccept, contentCharset := checkContentType(resp.Header, f.accepts)
+	if !isAccept {
+		return nil, nil, false, nil
+	}
 	var reader io.Reader
 
 	reader = bufio.NewReader(resp.Body)
-	defer resp.Body.Close()
 	if contentCharset != "utf-8" && contentCharset != "" {
 		hasDecoder, decoder := getDecoder(contentCharset)
 		if hasDecoder {

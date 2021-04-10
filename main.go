@@ -14,7 +14,7 @@ func initBloomFilter(config Config) BloomFilter {
 
 func initFetcher(config Config) Fetcher {
 	log.Println("[Init Fetcher]")
-	return newDefaultFetcher()
+	return newDefaultFetcher(config.Accepts)
 }
 
 func initQueue(config Config) (Queue, error) {
@@ -58,6 +58,15 @@ func computeUrl(u *url.URL) string {
 		return u.Scheme + "://" + u.Host + u.RequestURI()
 	} else {
 		return u.Scheme + "://" + userStirng + "@" + u.Host + u.RequestURI()
+	}
+}
+
+func computeKey(u *url.URL) string {
+	userStirng := strings.TrimSpace(u.User.String())
+	if userStirng == "" {
+		return u.Host + u.RequestURI()
+	} else {
+		return userStirng + "@" + u.Host + u.RequestURI()
 	}
 }
 
@@ -153,19 +162,20 @@ func main() {
 				continue
 			}
 			r := u.ResolveReference(nu)
-			newUrl = computeUrl(r)
-			exists, err := filter.Exists(newUrl)
+			newKey := computeKey(r)
+			newUrl = r.Scheme + "://" + newKey
+			exists, err := filter.Exists(newKey) // 检查是否存在
 			if err != nil {
 				return false, err
 			}
 			if exists {
 				continue
 			}
-			err = queue.Publish(newUrl)
+			err = queue.Publish(newUrl) // 入队
 			if err != nil {
 				return false, nil
 			}
-			filter.Add(newUrl)
+			filter.Add(newKey) // 更新过滤器
 		}
 		return true, nil
 	})

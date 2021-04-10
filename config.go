@@ -12,6 +12,7 @@ type Config struct {
 	Elasticsearch ElasticsearchConfig `json:"elasticsearch"`
 	Seeds         []string            `json:"seeds"`
 	Reset         bool                `json:"reset"`
+	Accepts       []string            `json:"accepts"`
 }
 
 type RedisBloomConfig struct {
