@@ -6,7 +6,7 @@
 
 ## 使用方法
 ### 命令行参数
-```bash
+```shell
 $ go run . -h
 Usage of hello-spider.exe:
   -config string
@@ -69,12 +69,6 @@ Usage of hello-spider.exe:
     ]
 }
 ```
-
-### 运行
-```bash
-go run .
-```
-
 
 ## 相关技术
 ### 布隆过滤器
