@@ -1,6 +1,8 @@
 package main
 
 import (
+	"log"
+
 	"github.com/streadway/amqp"
 )
 
@@ -67,10 +69,11 @@ func (q RbQueue) Consume(handler func(content string) (ack bool, err error)) err
 		return err
 	}
 	for d := range msgs {
-		ack, err := handler(string(d.Body))
-		d.Ack(ack)
+		msg := d
+		ack, err := handler(string(msg.Body))
+		msg.Ack(ack)
 		if err != nil {
-			return err
+			log.Fatal(err)
 		}
 	}
 	return nil

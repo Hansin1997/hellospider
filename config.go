@@ -12,6 +12,7 @@ type Config struct {
 	Elasticsearch ElasticsearchConfig `json:"elasticsearch"`
 	Seeds         []string            `json:"seeds"`
 	Reset         bool                `json:"reset"`
+	Workers       int                 `json:"workers"`
 	Accepts       []string            `json:"accepts"`
 }
 
