@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log"
 	"net/url"
 	"strings"
@@ -15,20 +16,16 @@ func initBloomFilter(config Config) BloomFilter {
 
 func initFetcher(config Config) Fetcher {
 	log.Println("[Init Fetcher]")
-	return newDefaultFetcher(config.Accepts)
+	return newDefaultFetcher(config.Accepts, config.UserAgents)
 }
 
-func initQueue(config Config) ([]Queue, error) {
+func initQueue(config Config) (Queue, error) {
 	log.Println("[Init Queue]")
-	queues := make([]Queue, config.Workers)
-	for i := 0; i < config.Workers; i++ {
-		queue, err := newRbQueue(config.RabbitMq.Url, config.RabbitMq.Exchange, config.RabbitMq.Queue, config.RabbitMq.RoutingKey)
-		if err != nil {
-			return nil, err
-		}
-		queues[i] = queue
-	}
-	return queues, nil
+	return newRbQueue(config.RabbitMq.Url,
+		config.RabbitMq.Exchange,
+		config.RabbitMq.Queue,
+		config.RabbitMq.RoutingKey,
+		config.Workers*8)
 }
 
 func initStorage(config Config) (Storage, error) {
@@ -165,14 +162,17 @@ func handle(content string, filter BloomFilter, fetcher Fetcher, storage Storage
 
 func main() {
 
-	cfg := loadConfig("config.json") // 载入配置
+	_reset := flag.Bool("reset", false, "开始前清空数据。")                // 是否重置
+	_configFile := flag.String("config", "config.json", "配置文件路径。") // 是否重置
+	_seed := flag.String("seed", "", "种子 URL。")
+	flag.Parse()
+	cfg := loadConfig(*_configFile) // 载入配置
 	if cfg.Workers < 1 {
 		cfg.Workers = 1
 	}
-	_reset := cfg.Reset            // 是否重置
 	filter := initBloomFilter(cfg) // 初始化布隆过滤器
 	fetcher := initFetcher(cfg)
-	queues, err := initQueue(cfg)
+	queue, err := initQueue(cfg)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -181,20 +181,27 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if _reset {
-		reset(filter, queues[0], storage) // 重置
+	if *_reset {
+		reset(filter, queue, storage) // 重置
 	}
 
-	err = pushSeeds(filter, queues[0], cfg.Seeds)
-	if err != nil {
-		log.Fatal(err)
+	if strings.TrimSpace(*_seed) != "" {
+		err = pushSeeds(filter, queue, []string{*_seed})
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		err = pushSeeds(filter, queue, cfg.Seeds)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	log.Println("")
 	log.Println("[Start]")
 
 	wg := sync.WaitGroup{}
-	for _, queue := range queues {
+	for i := 0; i < cfg.Workers; i++ {
 		wg.Add(1)
 		go func(queue Queue) {
 			err := queue.Consume(func(content string) (bool, error) {
