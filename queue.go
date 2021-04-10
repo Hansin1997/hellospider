@@ -21,12 +21,16 @@ type RbQueue struct {
 	channel      *amqp.Channel
 }
 
-func newRbQueue(url string, exchangeName string, queueName string, routingKey string) (*RbQueue, error) {
+func newRbQueue(url string, exchangeName string, queueName string, routingKey string, prefetchCount int) (*RbQueue, error) {
 	conn, err := amqp.Dial(url)
 	if err != nil {
 		return nil, err
 	}
 	ch, err := conn.Channel()
+	if err != nil {
+		return nil, err
+	}
+	err = ch.Qos(prefetchCount, 0, false)
 	if err != nil {
 		return nil, err
 	}
@@ -71,9 +75,15 @@ func (q RbQueue) Consume(handler func(content string) (ack bool, err error)) err
 	for d := range msgs {
 		msg := d
 		ack, err := handler(string(msg.Body))
-		msg.Ack(ack)
+
 		if err != nil {
+			msg.Nack(false, true)
 			log.Fatal(err)
+		}
+		if ack {
+			msg.Ack(false)
+		} else {
+			msg.Nack(false, false)
 		}
 	}
 	return nil

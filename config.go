@@ -11,7 +11,7 @@ type Config struct {
 	RabbitMq      RabbitMqConfig      `json:"rabbitMq"`
 	Elasticsearch ElasticsearchConfig `json:"elasticsearch"`
 	Seeds         []string            `json:"seeds"`
-	Reset         bool                `json:"reset"`
+	UserAgents    []string            `json:"userAgents"`
 	Workers       int                 `json:"workers"`
 	Accepts       []string            `json:"accepts"`
 }
