@@ -30,25 +30,25 @@ type RedisBloomFilter struct {
 // auth - 密码
 //
 // filterName - 过滤器名称
-func newRedisBloom(host string, name string, auth *string, filterName string) RedisBloomFilter {
+func newRedisBloom(host string, name string, auth string, filterName string) RedisBloomFilter {
 	filter := new(RedisBloomFilter)
 	filter.filterName = filterName
-	filter.client = redisbloom.NewClient(host, name, auth)
+	filter.client = redisbloom.NewClient(host, name, &auth)
 	return *filter
 }
 
-func (instance RedisBloomFilter) Exists(key string) (exists bool, err error) {
-	return instance.client.Exists(instance.filterName, key)
+func (f RedisBloomFilter) Exists(key string) (exists bool, err error) {
+	return f.client.Exists(f.filterName, key)
 }
 
-func (instance RedisBloomFilter) Add(key string) (exists bool, err error) {
-	return instance.client.Add(instance.filterName, key)
+func (f RedisBloomFilter) Add(key string) (exists bool, err error) {
+	return f.client.Add(f.filterName, key)
 }
 
-func (instance RedisBloomFilter) Clear() (success bool, err error) {
-	conn := instance.client.Pool.Get()
+func (f RedisBloomFilter) Clear() (success bool, err error) {
+	conn := f.client.Pool.Get()
 	defer conn.Close()
-	args := redis.Args{instance.filterName}
+	args := redis.Args{f.filterName}
 	result, err := conn.Do("DEL", args...)
 	return redis.Bool(result, err)
 }

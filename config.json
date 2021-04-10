@@ -2,5 +2,8 @@
     "redisHost": "192.168.199.216:30005",
     "redisAuth": null,
     "redisClientName": "spider",
-    "filerName": "spider"
+    "filerName": "spider",
+    "rabbitUrl": "amqp://hansin:123456@instance-2:30030/",
+    "rabbitExchange": "spider",
+    "rabbitQueue": "spider-work"
 }

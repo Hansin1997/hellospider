@@ -15,7 +15,7 @@ type Document struct {
 }
 
 type Fetcher interface {
-	Fetch(targetUrl string) (doc *Document, urls []string, err error)
+	Fetch(targetUrl string) (doc *Document, urls []string, success bool, err error)
 }
 
 type DefaultFetcher struct {
@@ -25,16 +25,19 @@ func newDefaultFetcher() DefaultFetcher {
 	return DefaultFetcher{}
 }
 
-func (fetcher DefaultFetcher) Fetch(targetUrl string) (doc *Document, urls []string, err error) {
+func (f DefaultFetcher) Fetch(targetUrl string) (doc *Document, urls []string, success bool, err error) {
 	resp, err := http.Get(targetUrl)
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return nil, nil, false, nil
+	}
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 	reader := bufio.NewReader(resp.Body)
 	gdoc, err := goquery.NewDocumentFromReader(reader)
 	defer resp.Body.Close()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 
 	aNodes := gdoc.Find("a")
@@ -49,5 +52,5 @@ func (fetcher DefaultFetcher) Fetch(targetUrl string) (doc *Document, urls []str
 	document.Url = targetUrl
 	document.Title = strings.TrimSpace(gdoc.Find("title").Text())
 	document.Content = gdoc.Text()
-	return document, next, nil
+	return document, next, true, nil
 }

@@ -1,57 +1,95 @@
 package main
 
 import (
-	"encoding/json"
-	"io/ioutil"
 	"log"
+	"net/url"
+	"strings"
 )
 
-type Config struct {
-	RedisHost       string  `json:"redisHost"`
-	RedisAuth       *string `json:"redusAuth"`
-	RedisClientName string  `json:"redisClientName"`
-	FilterName      string  `json:"filerName"`
-}
-
-func loadConfig(path string) Config {
-	buf, err := ioutil.ReadFile(path)
-	if err != nil {
-		log.Panicln("load config file failed: ", err)
-	}
-	cfg := Config{}
-	json.Unmarshal(buf, cfg)
-	return cfg
-}
-
 func initBloomFilter(config Config) BloomFilter {
-	return newRedisBloom(config.RedisHost, config.RedisClientName, config.RedisAuth, config.FilterName)
+	return newRedisBloom(config.Redis.Host, config.Redis.Client, config.Redis.Auth, config.Redis.Filter)
 }
 
 func initFetcher(config Config) Fetcher {
 	return newDefaultFetcher()
 }
 
-func reset(bloomFilter BloomFilter) {
+func initQueue(config Config) (Queue, error) {
+	return newRbQueue(config.RabbitMq.Url, config.RabbitMq.Exchange, config.RabbitMq.Queue)
+}
+
+func reset(bloomFilter BloomFilter, queue Queue) {
 	bloomFilter.Clear()
+	queue.Clear()
+}
+
+func computeUrl(u *url.URL) string {
+	userStirng := strings.TrimSpace(u.User.String())
+	if userStirng == "" {
+		return u.Scheme + "://" + u.Host + u.RequestURI()
+	} else {
+		return u.Scheme + "://" + userStirng + "@" + u.Host + u.RequestURI()
+	}
 }
 
 func main() {
-	var _reset bool = false // 是否重置
+	var _reset bool = true // 是否重置
 
 	cfg := loadConfig("config.json") // 载入配置
 
-	// var bloom BloomFilter = initBloomFilter(cfg) // 初始化布隆过滤器
-	var fetcher Fetcher = initFetcher(cfg)
-
-	if _reset {
-		// reset(bloom) // 重置
-	}
-
-	doc, urls, err := fetcher.Fetch("https://gushi365.com/")
+	filter := initBloomFilter(cfg) // 初始化布隆过滤器
+	fetcher := initFetcher(cfg)
+	queue, err := initQueue(cfg)
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Println(doc)
-	log.Println(urls)
+	if _reset {
+		reset(filter, queue) // 重置
+	}
 
+	queue.Consume(func(content string) (bool, error) {
+
+		u, err := url.Parse(content)
+
+		if err != nil {
+			log.Println(err)
+			return true, nil
+		}
+		target := computeUrl(u)
+		doc, urls, success, err := fetcher.Fetch(target)
+		if err != nil {
+			log.Println(err)
+			return true, nil
+		}
+		if !success {
+			return true, nil
+		}
+		log.Printf("%s\t[%s]\n", target, doc.Title)
+		for _, newUrl := range urls {
+			newUrl = strings.TrimSpace(newUrl)
+			if newUrl == "" || strings.HasPrefix(newUrl, "#") || strings.HasPrefix(newUrl, "javascript") {
+				continue
+			}
+			nu, err := url.Parse(newUrl)
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+			r := u.ResolveReference(nu)
+			newUrl = computeUrl(r)
+			exists, err := filter.Exists(newUrl)
+			if err != nil {
+				return false, err
+			}
+			if exists {
+				continue
+			}
+			err = queue.Publish(newUrl)
+			if err != nil {
+				return false, nil
+			}
+			filter.Add(newUrl)
+		}
+		return true, nil
+	})
 }
