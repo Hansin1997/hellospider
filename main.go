@@ -136,12 +136,12 @@ func main() {
 		if !success {
 			return true, nil
 		}
-		log.Printf("%s\t[%s]\n", target, doc.Title)
 		err = storage.Save(doc)
 		if err != nil {
 			log.Println(err)
 			return false, nil
 		}
+		log.Printf("[Save] %s [%s]\n", target, doc.Title)
 		for _, newUrl := range urls {
 			newUrl = strings.TrimSpace(newUrl)
 			if newUrl == "" || strings.HasPrefix(newUrl, "#") || strings.HasPrefix(newUrl, "javascript") {

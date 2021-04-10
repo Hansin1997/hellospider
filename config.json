@@ -20,6 +20,7 @@
         "index": "spider"
     },
     "seeds": [
+        "https://qq.com/"
     ],
-    "reset": true
+    "reset": false
 }

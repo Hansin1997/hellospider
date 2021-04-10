@@ -9,4 +9,5 @@ require (
 	github.com/elastic/go-elasticsearch/v7 v7.12.0 // indirect
 	github.com/gomodule/redigo v1.8.4 // indirect
 	github.com/streadway/amqp v1.0.0 // indirect
+	golang.org/x/text v0.3.6 // indirect
 )
