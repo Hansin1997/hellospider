@@ -11,7 +11,7 @@ import (
 
 func initBloomFilter(config Config) BloomFilter {
 	log.Println("[Init BloomFilter]")
-	return newRedisBloom(config.Redis.Host, config.Redis.Client, config.Redis.Auth, config.Redis.Filter)
+	return newRedisBloom(config.Redis.Host, "spider-"+config.Namespace, config.Redis.Auth, "filter:"+config.Namespace)
 }
 
 func initFetcher(config Config) Fetcher {
@@ -23,8 +23,8 @@ func initQueue(config Config) (Queue, error) {
 	log.Println("[Init Queue]")
 	return newRbQueue(config.RabbitMq.Url,
 		config.RabbitMq.Exchange,
-		config.RabbitMq.Queue,
-		config.RabbitMq.RoutingKey,
+		"spider-"+config.Namespace,
+		"spider/"+config.Namespace,
 		config.Workers*8)
 }
 
@@ -33,7 +33,7 @@ func initStorage(config Config) (Storage, error) {
 	return newElasticsearchStorage(config.Elasticsearch.Address,
 		config.Elasticsearch.Username,
 		config.Elasticsearch.Password,
-		config.Elasticsearch.Index,
+		"spider-"+config.Namespace,
 		context.Background())
 }
 
@@ -165,11 +165,17 @@ func main() {
 	_reset := flag.Bool("reset", false, "开始前清空数据。")                // 是否重置
 	_configFile := flag.String("config", "config.json", "配置文件路径。") // 是否重置
 	_seed := flag.String("seed", "", "种子 URL。")
+	_namespace := flag.String("namespace", "", "命名空间。（区分不同任务）")
 	flag.Parse()
 	cfg := loadConfig(*_configFile) // 载入配置
 	if cfg.Workers < 1 {
 		cfg.Workers = 1
 	}
+
+	if strings.TrimSpace(*_namespace) != "" {
+		cfg.Namespace = *_namespace
+	}
+
 	filter := initBloomFilter(cfg) // 初始化布隆过滤器
 	fetcher := initFetcher(cfg)
 	queue, err := initQueue(cfg)

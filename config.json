@@ -1,27 +1,23 @@
 {
+    "namespace": "default",
     "workers": 8,
     "seeds": [
         "https://baidu.com/"
     ],
     "redis": {
         "host": "instance-2:30005",
-        "auth": null,
-        "client": "spider",
-        "filter": "spider"
+        "auth": null
     },
     "rabbitMq": {
         "url": "amqp://hansin:123456@instance-2:30030/",
-        "exchange": "spider",
-        "queue": "spider-work",
-        "routingKey": "spider-work"
+        "exchange": "spider"
     },
     "elasticsearch": {
         "address": [
             "http://instance-2:30101"
         ],
         "username": "hansin",
-        "password": "123456",
-        "index": "spider"
+        "password": "123456"
     },
     "accepts": [
         "text/html",

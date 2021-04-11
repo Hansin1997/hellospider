@@ -7,6 +7,7 @@ import (
 )
 
 type Config struct {
+	Namespace     string              `json:"namespace"`
 	Redis         RedisBloomConfig    `json:"redis"`
 	RabbitMq      RabbitMqConfig      `json:"rabbitMq"`
 	Elasticsearch ElasticsearchConfig `json:"elasticsearch"`
@@ -17,24 +18,19 @@ type Config struct {
 }
 
 type RedisBloomConfig struct {
-	Host   string `json:"host"`
-	Auth   string `json:"auth"`
-	Client string `json:"client"`
-	Filter string `json:"filter"`
+	Host string `json:"host"`
+	Auth string `json:"auth"`
 }
 
 type ElasticsearchConfig struct {
 	Address  []string `json:"address"`
 	Username string   `json:"username"`
 	Password string   `json:"password"`
-	Index    string   `json:"index"`
 }
 
 type RabbitMqConfig struct {
-	Url        string `json:"url"`
-	Exchange   string `json:"exchange"`
-	Queue      string `json:"queue"`
-	RoutingKey string `json:"routingKey"`
+	Url      string `json:"url"`
+	Exchange string `json:"exchange"`
 }
 
 func loadConfig(path string) Config {

@@ -53,6 +53,9 @@ func (e ElasticsearchStorage) Save(v interface{}) error {
 	if err != nil {
 		return err
 	}
+	if response.Body != nil {
+		defer response.Body.Close()
+	}
 	if response.IsError() {
 		return errors.New(response.String())
 	}
