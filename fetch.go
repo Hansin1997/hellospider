@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 
@@ -15,9 +16,13 @@ import (
 )
 
 type Document struct {
-	Title   string
-	Content string
-	Url     string
+	Title          string
+	Content        string
+	Url            string
+	FetchAt        time.Time
+	ResponseHeader http.Header
+	RequestHeader  http.Header
+	RemoteAddr     string
 }
 
 type Fetcher interface {
@@ -94,11 +99,17 @@ func (f DefaultFetcher) Fetch(targetUrl string) (doc *Document, urls []string, s
 		return nil, nil, false, err
 	}
 	requ.Header.Add("User-Agent", f.randomAgent())
+
 	resp, err := http.DefaultClient.Do(requ)
 	if err != nil {
 		return nil, nil, false, err
 	}
-	defer resp.Body.Close()
+	if requ.Body != nil {
+		defer requ.Body.Close()
+	}
+	if resp.Body != nil {
+		defer resp.Body.Close()
+	}
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		return nil, nil, false, nil
 	}
@@ -116,7 +127,7 @@ func (f DefaultFetcher) Fetch(targetUrl string) (doc *Document, urls []string, s
 		}
 	}
 	gdoc, err := goquery.NewDocumentFromReader(reader)
-	defer resp.Body.Close()
+
 	if err != nil {
 		return nil, nil, false, err
 	}
@@ -133,5 +144,9 @@ func (f DefaultFetcher) Fetch(targetUrl string) (doc *Document, urls []string, s
 	document.Url = targetUrl
 	document.Title = strings.TrimSpace(gdoc.Find("title").Text())
 	document.Content = gdoc.Text()
+	document.RequestHeader = requ.Header
+	document.ResponseHeader = resp.Header
+	document.RemoteAddr = resp.Request.RemoteAddr
+	document.FetchAt = time.Now()
 	return document, next, true, nil
 }

@@ -109,26 +109,26 @@ func pushSeeds(filter BloomFilter, queue Queue, seeds []string) error {
 	return nil
 }
 
-func handle(content string, filter BloomFilter, fetcher Fetcher, storage Storage, queue Queue) (bool, error) {
+func handle(content string, filter BloomFilter, fetcher Fetcher, storage Storage, queue Queue) (bool, bool, error) {
 	u, err := url.Parse(content)
 
 	if err != nil {
 		log.Println(err)
-		return true, nil
+		return true, false, nil
 	}
 	target := computeUrl(u)
 	doc, urls, success, err := fetcher.Fetch(target)
 	if err != nil {
 		log.Println(err)
-		return true, nil
+		return true, false, nil
 	}
 	if !success {
-		return true, nil
+		return true, false, nil
 	}
 	err = storage.Save(doc)
 	if err != nil {
 		log.Println(err)
-		return false, nil
+		return false, true, nil
 	}
 	log.Printf("[Save] %s [%s]\n", target, doc.Title)
 	for _, newUrl := range urls {
@@ -146,18 +146,18 @@ func handle(content string, filter BloomFilter, fetcher Fetcher, storage Storage
 		newUrl = r.Scheme + "://" + newKey
 		exists, err := filter.Exists(newKey) // 检查是否存在
 		if err != nil {
-			return false, err
+			return false, false, err
 		}
 		if exists {
 			continue
 		}
 		err = queue.Publish(newUrl) // 入队
 		if err != nil {
-			return false, nil
+			return false, false, nil
 		}
 		filter.Add(newKey) // 更新过滤器
 	}
-	return true, nil
+	return true, false, nil
 }
 
 func main() {
@@ -204,13 +204,12 @@ func main() {
 	for i := 0; i < cfg.Workers; i++ {
 		wg.Add(1)
 		go func(queue Queue) {
-			err := queue.Consume(func(content string) (bool, error) {
+			defer wg.Done()
+			err := queue.Consume(func(content string) (bool, bool, error) {
 				return handle(content, filter, fetcher, storage, queue)
 			})
 			if err != nil {
 				log.Fatal(err)
-			} else {
-				wg.Done()
 			}
 		}(queue)
 	}

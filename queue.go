@@ -1,14 +1,12 @@
 package main
 
 import (
-	"log"
-
 	"github.com/streadway/amqp"
 )
 
 type Queue interface {
 	Publish(content string) error
-	Consume(handler func(content string) (ack bool, err error)) error
+	Consume(handler func(content string) (ack bool, requeue bool, err error)) error
 	Close() error
 	Clear() error
 }
@@ -67,23 +65,23 @@ func (q RbQueue) Publish(content string) error {
 		})
 }
 
-func (q RbQueue) Consume(handler func(content string) (ack bool, err error)) error {
+func (q RbQueue) Consume(handler func(content string) (ack bool, requeue bool, err error)) error {
 	msgs, err := q.channel.Consume(q.QueueName, "", false, false, false, false, nil)
 	if err != nil {
 		return err
 	}
 	for d := range msgs {
 		msg := d
-		ack, err := handler(string(msg.Body))
+		ack, requeue, err := handler(string(msg.Body))
 
 		if err != nil {
-			msg.Nack(false, true)
-			log.Fatal(err)
+			msg.Nack(false, requeue)
+			return err
 		}
 		if ack {
 			msg.Ack(false)
 		} else {
-			msg.Nack(false, false)
+			msg.Nack(false, requeue)
 		}
 	}
 	return nil
