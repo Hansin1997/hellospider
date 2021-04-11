@@ -19,10 +19,10 @@ type Document struct {
 	Title          string
 	Content        string
 	Url            string
+	Host           string
 	FetchAt        time.Time
 	ResponseHeader http.Header
 	RequestHeader  http.Header
-	RemoteAddr     string
 }
 
 type Fetcher interface {
@@ -85,6 +85,44 @@ func getDecoder(charset string) (bool, transform.Transformer) {
 	return false, nil
 }
 
+func shouldKeep(char rune) bool {
+	switch char {
+	case ' ':
+		fallthrough
+	case '\r':
+		fallthrough
+	case '\n':
+		fallthrough
+	case '\t':
+		fallthrough
+	case '\v':
+		fallthrough
+	case '\f':
+		return true
+	default:
+		return false
+	}
+}
+
+func trimContent(input string) (output string) {
+	bder := strings.Builder{}
+	lastFlag := true
+	for _, c := range input {
+		if shouldKeep(c) {
+			if !lastFlag {
+				bder.WriteRune(' ')
+				lastFlag = true
+			}
+			continue
+		}
+		if lastFlag {
+			lastFlag = false
+		}
+		bder.WriteRune(c)
+	}
+	return bder.String()
+}
+
 func (f DefaultFetcher) randomAgent() string {
 	len := len(f.userAgents)
 	if len > 0 {
@@ -104,6 +142,7 @@ func (f DefaultFetcher) Fetch(targetUrl string) (doc *Document, urls []string, s
 	if err != nil {
 		return nil, nil, false, err
 	}
+
 	if requ.Body != nil {
 		defer requ.Body.Close()
 	}
@@ -140,13 +179,15 @@ func (f DefaultFetcher) Fetch(targetUrl string) (doc *Document, urls []string, s
 			next[i] = val
 		}
 	})
+	gdoc.Find("script").Remove()
+	gdoc.Find("style").Remove()
 	document := new(Document)
 	document.Url = targetUrl
 	document.Title = strings.TrimSpace(gdoc.Find("title").Text())
-	document.Content = gdoc.Text()
-	document.RequestHeader = requ.Header
+	document.Content = trimContent(gdoc.Find("body").Text())
+	document.RequestHeader = resp.Request.Header
 	document.ResponseHeader = resp.Header
-	document.RemoteAddr = resp.Request.RemoteAddr
 	document.FetchAt = time.Now()
+	document.Host = resp.Request.URL.Host
 	return document, next, true, nil
 }
