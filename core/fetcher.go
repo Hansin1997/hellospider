@@ -1,8 +1,9 @@
 package core
 
 import (
-	"bufio"
+	"bytes"
 	"io"
+	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"strings"
@@ -38,37 +39,34 @@ func NewDefaultFetcher(accepts []string, userAgents []string) DefaultFetcher {
 	return DefaultFetcher{accepts, userAgents}
 }
 
-func checkContentType(header http.Header, accepts []string) (isAccept bool, conentCharset string) {
-	if header != nil {
-		items := strings.Split(header.Get("Content-Type"), ";")
-		if len(items) == 0 {
-			return false, ""
-		}
-		contentType := items[0]
-		for _, accept := range accepts {
-			if accept == contentType {
-				isAccept = true
-				break
-			}
-		}
-		if !isAccept {
-			return false, ""
-		}
-		if len(items) > 1 {
-			for _, item := range items[1:] {
-				item = strings.TrimSpace(item)
-				if strings.HasPrefix(item, "charset=") {
-					return isAccept, strings.ToLower(item[8:])
-				}
-			}
-		}
-		return isAccept, "utf-8"
+func checkContentType(content_type string, accepts []string) (isAccept bool, conentCharset string) {
+	items := strings.Split(content_type, ";")
+	if len(items) == 0 {
+		return false, ""
 	}
-	return false, ""
+	contentType := items[0]
+	for _, accept := range accepts {
+		if accept == contentType {
+			isAccept = true
+			break
+		}
+	}
+	if !isAccept {
+		return false, ""
+	}
+	if len(items) > 1 {
+		for _, item := range items[1:] {
+			item = strings.TrimSpace(item)
+			if strings.HasPrefix(item, "charset=") {
+				return isAccept, strings.ToLower(item[8:])
+			}
+		}
+	}
+	return isAccept, ""
 }
 
 func getDecoder(charset string) (bool, transform.Transformer) {
-
+	charset = strings.ToLower(charset)
 	switch charset {
 	case "gbk":
 		return true, simplifiedchinese.GBK.NewDecoder()
@@ -142,7 +140,6 @@ func (f DefaultFetcher) Fetch(targetUrl string) (doc *Document, urls []string, s
 	if err != nil {
 		return nil, nil, false, err
 	}
-
 	if requ.Body != nil {
 		defer requ.Body.Close()
 	}
@@ -152,23 +149,63 @@ func (f DefaultFetcher) Fetch(targetUrl string) (doc *Document, urls []string, s
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		return nil, nil, false, nil
 	}
-	isAccept, contentCharset := checkContentType(resp.Header, f.accepts)
+
+	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, nil, false, err
+	}
+
+	isAccept, contentCharset := checkContentType(resp.Header.Get("Content-Type"), f.accepts)
 	if !isAccept {
 		return nil, nil, false, nil
 	}
 	var reader io.Reader
 
-	reader = bufio.NewReader(resp.Body)
+	reader = bytes.NewReader(bodyBytes)
+
 	if contentCharset != "utf-8" && contentCharset != "" {
 		hasDecoder, decoder := getDecoder(contentCharset)
 		if hasDecoder {
 			reader = transform.NewReader(reader, decoder)
 		}
 	}
+
 	gdoc, err := goquery.NewDocumentFromReader(reader)
 
 	if err != nil {
 		return nil, nil, false, err
+	}
+
+	htmlCharset := contentCharset
+
+	selections := gdoc.Find("meta[charset]")
+	if selections.Length() > 0 {
+		cs, exist := selections.First().Attr("charset")
+		if exist && cs != "" && !strings.EqualFold(cs, contentCharset) {
+			htmlCharset = cs
+		}
+	} else {
+		selections = gdoc.Find("meta[http-equiv='Content-Type']")
+		if selections.Length() > 0 {
+			cs, exist := selections.First().Attr("content")
+			if exist && cs != "" {
+				_, cs = checkContentType(cs, f.accepts)
+				if !strings.EqualFold(cs, contentCharset) {
+					htmlCharset = cs
+				}
+			}
+		}
+	}
+
+	if htmlCharset != contentCharset {
+		hasDecoder, decoder := getDecoder(htmlCharset)
+		if hasDecoder {
+			reader = transform.NewReader(bytes.NewReader(bodyBytes), decoder)
+			gdoc, err = goquery.NewDocumentFromReader(reader)
+			if err != nil {
+				return nil, nil, false, err
+			}
+		}
 	}
 
 	aNodes := gdoc.Find("a")
