@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bufio"
 	"bytes"
 	"io"
 	"io/ioutil"
@@ -18,7 +19,9 @@ import (
 
 type Document struct {
 	Title          string
+	Description    string
 	Content        string
+	Keywords       string
 	Url            string
 	Host           string
 	FetchAt        time.Time
@@ -150,61 +153,77 @@ func (f DefaultFetcher) Fetch(targetUrl string) (doc *Document, urls []string, s
 		return nil, nil, false, nil
 	}
 
-	bodyBytes, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, nil, false, err
-	}
-
 	isAccept, contentCharset := checkContentType(resp.Header.Get("Content-Type"), f.accepts)
 	if !isAccept {
 		return nil, nil, false, nil
 	}
-	var reader io.Reader
 
-	reader = bytes.NewReader(bodyBytes)
+	var gdoc *goquery.Document
 
-	if contentCharset != "utf-8" && contentCharset != "" {
-		hasDecoder, decoder := getDecoder(contentCharset)
-		if hasDecoder {
-			reader = transform.NewReader(reader, decoder)
+	if contentCharset == "" {
+		// 如果 Header 中没有 charset ，则需要一次读完内容，再从 Html 元素中判断。
+
+		bodyBytes, err := ioutil.ReadAll(resp.Body)
+
+		if err != nil {
+			return nil, nil, false, err
 		}
-	}
 
-	gdoc, err := goquery.NewDocumentFromReader(reader)
+		gdoc, err = goquery.NewDocumentFromReader(bytes.NewReader(bodyBytes))
 
-	if err != nil {
-		return nil, nil, false, err
-	}
-
-	htmlCharset := contentCharset
-
-	selections := gdoc.Find("meta[charset]")
-	if selections.Length() > 0 {
-		cs, exist := selections.First().Attr("charset")
-		if exist && cs != "" && !strings.EqualFold(cs, contentCharset) {
-			htmlCharset = cs
+		if err != nil {
+			return nil, nil, false, err
 		}
-	} else {
-		selections = gdoc.Find("meta[http-equiv='Content-Type']")
+
+		selections := gdoc.Find("meta[charset]")
 		if selections.Length() > 0 {
-			cs, exist := selections.First().Attr("content")
-			if exist && cs != "" {
-				_, cs = checkContentType(cs, f.accepts)
-				if !strings.EqualFold(cs, contentCharset) {
-					htmlCharset = cs
+			cs, exist := selections.First().Attr("charset")
+			if exist && cs != "" && !strings.EqualFold(cs, contentCharset) {
+				contentCharset = strings.ToLower(cs)
+			}
+		} else {
+			selections = gdoc.Find("meta[http-equiv='Content-Type']")
+			if selections.Length() > 0 {
+				cs, exist := selections.First().Attr("content")
+				if exist && cs != "" {
+					items := strings.Split(cs, ";")
+					for _, item := range items {
+						item = strings.ToLower(strings.TrimSpace(item))
+						if strings.HasPrefix(item, "charset=") {
+							contentCharset = item[8:]
+							break
+						}
+					}
 				}
 			}
 		}
-	}
 
-	if htmlCharset != contentCharset {
-		hasDecoder, decoder := getDecoder(htmlCharset)
-		if hasDecoder {
-			reader = transform.NewReader(bytes.NewReader(bodyBytes), decoder)
-			gdoc, err = goquery.NewDocumentFromReader(reader)
-			if err != nil {
-				return nil, nil, false, err
+		if contentCharset != "utf-8" && contentCharset != "" {
+			hasDecoder, decoder := getDecoder(contentCharset)
+			if hasDecoder {
+				reader := transform.NewReader(bytes.NewReader(bodyBytes), decoder)
+				gdoc, err = goquery.NewDocumentFromReader(reader)
+				if err != nil {
+					return nil, nil, false, err
+				}
 			}
+		}
+	} else {
+		// Header 中有 charset ，直接读 Body 流。
+		var reader io.Reader = bufio.NewReader(resp.Body)
+
+		// 如果字符编码不是 utf-8 ，进行转换
+		if contentCharset != "utf-8" {
+			hasDecoder, decoder := getDecoder(contentCharset)
+			if hasDecoder {
+				reader = transform.NewReader(reader, decoder)
+			}
+		}
+
+		gdoc, err = goquery.NewDocumentFromReader(reader)
+
+		if err != nil {
+			return nil, nil, false, err
 		}
 	}
 
@@ -222,6 +241,9 @@ func (f DefaultFetcher) Fetch(targetUrl string) (doc *Document, urls []string, s
 	document.Url = targetUrl
 	document.Title = strings.TrimSpace(gdoc.Find("title").Text())
 	document.Content = trimContent(gdoc.Find("body").Text())
+	document.Description = strings.TrimSpace(gdoc.Find("meta[name='description']").AttrOr("content", ""))
+	document.Keywords = strings.TrimSpace(gdoc.Find("meta[name='description']").AttrOr("keywords", ""))
+
 	document.RequestHeader = resp.Request.Header
 	document.ResponseHeader = resp.Header
 	document.FetchAt = time.Now()
