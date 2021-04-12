@@ -1,4 +1,4 @@
-package main
+package core
 
 import (
 	"bytes"
@@ -23,7 +23,7 @@ type ElasticsearchStorage struct {
 	index   string
 }
 
-func newElasticsearchStorage(address []string,
+func NewElasticsearchStorage(address []string,
 	username string,
 	password string,
 	index string,

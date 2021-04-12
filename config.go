@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"io/ioutil"
-	"log"
 )
 
 type Config struct {
@@ -33,12 +32,18 @@ type RabbitMqConfig struct {
 	Exchange string `json:"exchange"`
 }
 
-func loadConfig(path string) Config {
+func loadConfig(path string) (*Config, error) {
 	buf, err := ioutil.ReadFile(path)
 	if err != nil {
-		log.Panicln("load config file failed: ", err)
+		return nil, err
 	}
-	cfg := Config{}
-	json.Unmarshal(buf, &cfg)
-	return cfg
+	cfg := &Config{}
+	err = json.Unmarshal(buf, &cfg)
+	if err != nil {
+		return nil, err
+	}
+	if cfg.Workers <= 0 {
+		cfg.Workers = 1
+	}
+	return cfg, nil
 }

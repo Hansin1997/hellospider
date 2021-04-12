@@ -6,219 +6,114 @@ import (
 	"log"
 	"net/url"
 	"strings"
-	"sync"
+	"time"
+
+	"hellospider/core"
 )
 
-func initBloomFilter(config Config) BloomFilter {
-	log.Println("[Init BloomFilter]")
-	return newRedisBloom(config.Redis.Host, "spider-"+config.Namespace, config.Redis.Auth, "filter:"+config.Namespace)
+// 初始化布隆过滤器
+func initBloomFilter(config Config) core.BloomFilter {
+	return core.NewRedisBloom(config.Redis.Host, "spider-"+config.Namespace, config.Redis.Auth, "filter:"+config.Namespace)
 }
 
-func initFetcher(config Config) Fetcher {
-	log.Println("[Init Fetcher]")
-	return newDefaultFetcher(config.Accepts, config.UserAgents)
+// 初始化抓取器
+func initFetcher(config Config) core.Fetcher {
+	return core.NewDefaultFetcher(config.Accepts, config.UserAgents)
 }
 
-func initQueue(config Config) (Queue, error) {
-	log.Println("[Init Queue]")
-	return newRbQueue(config.RabbitMq.Url,
+// 初始化消息队列
+func initQueue(config Config) (core.Queue, error) {
+	return core.NewRbQueue(config.RabbitMq.Url,
 		config.RabbitMq.Exchange,
 		"spider-"+config.Namespace,
 		"spider/"+config.Namespace,
 		config.Workers*8)
 }
 
-func initStorage(config Config) (Storage, error) {
-	log.Println("[Init Storage]")
-	return newElasticsearchStorage(config.Elasticsearch.Address,
+// 初始化存储器
+func initStorage(config Config) (core.Storage, error) {
+	return core.NewElasticsearchStorage(config.Elasticsearch.Address,
 		config.Elasticsearch.Username,
 		config.Elasticsearch.Password,
 		"spider-"+config.Namespace,
 		context.Background())
 }
 
-func reset(bloomFilter BloomFilter, queue Queue, storage Storage) {
-	_, err := bloomFilter.Clear()
+// 初始化全部组件
+func initAll(config Config, namespace string) (spider *core.Spider, error error) {
+	namespace = strings.TrimSpace(namespace)
+	if namespace != "" && namespace != "default" {
+		config.Namespace = namespace
+	}
+	filter := initBloomFilter(config)
+	fetcher := initFetcher(config)
+	queue, err := initQueue(config)
 	if err != nil {
-		log.Printf("[Reset BloomFilter Error] %s\n", err.Error())
-	} else {
-		log.Println("[Reset BloomFilter Success]")
+		return nil, err
 	}
-	err = queue.Clear()
+	storage, err := initStorage(config)
 	if err != nil {
-		log.Printf("[Reset Queue Error] %s\n", err.Error())
-	} else {
-		log.Println("[Reset Queue Success]")
+		return nil, err
 	}
-	err = storage.Clear()
-	if err != nil {
-		log.Printf("[Reset Storage Error] %s\n", err.Error())
-	} else {
-		log.Println("[Reset Storage Success]")
-	}
-}
-
-func computeUrl(u *url.URL) string {
-	userStirng := strings.TrimSpace(u.User.String())
-	if userStirng == "" {
-		return u.Scheme + "://" + u.Host + u.RequestURI()
-	} else {
-		return u.Scheme + "://" + userStirng + "@" + u.Host + u.RequestURI()
-	}
-}
-
-func computeKey(u *url.URL) string {
-	userStirng := strings.TrimSpace(u.User.String())
-	if userStirng == "" {
-		return u.Host + u.RequestURI()
-	} else {
-		return userStirng + "@" + u.Host + u.RequestURI()
-	}
-}
-
-func pushSeeds(filter BloomFilter, queue Queue, seeds []string) error {
-	if len(seeds) == 0 {
-		return nil
-	}
-	for _, seed := range seeds {
-		u, err := url.Parse(seed)
-		if err != nil {
-			log.Println(err)
-			continue
-		}
-		key := computeKey(u)
-		seed = u.Scheme + "://" + key
-		exists, err := filter.Exists(key)
-		if err != nil {
-			return err
-		}
-		if !exists {
-			err = queue.Publish(seed)
-			if err != nil {
-				return err
-			}
-			_, err = filter.Add(key)
-			if err != nil {
-				log.Println(err)
-			}
-			log.Printf("[Push Seed] %s\n", seed)
-		} else {
-			log.Printf("[Pass Seed] %s\n", seed)
-		}
-	}
-	return nil
-}
-
-func handle(content string, filter BloomFilter, fetcher Fetcher, storage Storage, queue Queue) (bool, bool, error) {
-	u, err := url.Parse(content)
-
-	if err != nil {
-		log.Println(err)
-		return true, false, nil
-	}
-	target := computeUrl(u)
-	doc, urls, success, err := fetcher.Fetch(target)
-	if err != nil {
-		log.Println(err)
-		return true, false, nil
-	}
-	if !success {
-		return true, false, nil
-	}
-	err = storage.Save(doc)
-	if err != nil {
-		log.Println(err)
-		return false, true, nil
-	}
-	log.Printf("[Save] %s [%s]\n", target, doc.Title)
-	for _, newUrl := range urls {
-		newUrl = strings.TrimSpace(newUrl)
-		if newUrl == "" || strings.HasPrefix(newUrl, "#") || strings.HasPrefix(newUrl, "javascript") {
-			continue
-		}
-		nu, err := url.Parse(newUrl)
-		if err != nil {
-			log.Println(err)
-			continue
-		}
-		r := u.ResolveReference(nu)
-		newKey := computeKey(r)
-		newUrl = r.Scheme + "://" + newKey
-		exists, err := filter.Exists(newKey) // 检查是否存在
-		if err != nil {
-			return false, false, err
-		}
-		if exists {
-			continue
-		}
-		err = queue.Publish(newUrl) // 入队
-		if err != nil {
-			return false, false, nil
-		}
-		filter.Add(newKey) // 更新过滤器
-	}
-	return true, false, nil
+	log.Println("[Info] Finish initialize.")
+	return &core.Spider{
+		Filter:  filter,
+		Queue:   queue,
+		Storage: storage,
+		Fetcher: fetcher,
+	}, nil
 }
 
 func main() {
 
-	_reset := flag.Bool("reset", false, "开始前清空数据。")                // 是否重置
-	_configFile := flag.String("config", "config.json", "配置文件路径。") // 是否重置
-	_seed := flag.String("seed", "", "种子 URL。")
-	_namespace := flag.String("namespace", "", "命名空间。（区分不同任务）")
+	configFile := flag.String("config", "config.json", "File path of configuration.")
+	seed := flag.String("seed", "", "The seeds URL is comma-separated. Such as: 'http://a.com/, http://b.com/'. And the seeds in the configuration file will be ignored.")
+	reset := flag.Bool("reset", false, "Reset queue, storage and filter before begin task.")
+	namespace := flag.String("namespace", "default", "Namespace of task.")
+
 	flag.Parse()
-	cfg := loadConfig(*_configFile) // 载入配置
-	if cfg.Workers < 1 {
-		cfg.Workers = 1
-	}
-
-	if strings.TrimSpace(*_namespace) != "" {
-		cfg.Namespace = *_namespace
-	}
-
-	filter := initBloomFilter(cfg) // 初始化布隆过滤器
-	fetcher := initFetcher(cfg)
-	queue, err := initQueue(cfg)
+	config, err := loadConfig(*configFile)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("[Error] Fail to load config!\n%s\n", err)
 	}
-	storage, err := initStorage(cfg)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	if *_reset {
-		reset(filter, queue, storage) // 重置
-	}
-
-	if strings.TrimSpace(*_seed) != "" {
-		err = pushSeeds(filter, queue, []string{*_seed})
-		if err != nil {
-			log.Fatal(err)
-		}
-	} else {
-		err = pushSeeds(filter, queue, cfg.Seeds)
-		if err != nil {
-			log.Fatal(err)
+	if *reset {
+		for i := 5; i >= 0; i-- {
+			log.Printf("[Warining] ⚠ Reset flag is true, clear namespace [%s] in %d seconds. ⚠ ", *namespace, i)
+			time.Sleep(time.Second)
 		}
 	}
 
-	log.Println("")
-	log.Println("[Start]")
-
-	wg := sync.WaitGroup{}
-	for i := 0; i < cfg.Workers; i++ {
-		wg.Add(1)
-		go func(queue Queue) {
-			defer wg.Done()
-			err := queue.Consume(func(content string) (bool, bool, error) {
-				return handle(content, filter, fetcher, storage, queue)
-			})
-			if err != nil {
-				log.Fatal(err)
-			}
-		}(queue)
+	spider, err := initAll(*config, *namespace)
+	if err != nil {
+		log.Fatalf("[Error] Fail to initialize!\n%s\n", err)
 	}
-	wg.Wait()
-	log.Println("[Finished]")
+
+	if *reset {
+		err = spider.Reset()
+		if err != nil {
+			log.Fatalf("[Error] Fail to reset!\n%s", err)
+		}
+		log.Println("[Info] Finish reset.")
+	}
+
+	if *seed != "" {
+		seeds := strings.Split(*seed, ",")
+		config.Seeds = seeds
+	}
+	for _, s := range config.Seeds {
+		u, err := url.Parse(s)
+		if err != nil {
+			log.Printf("[Warning] Fail to push seed: %s\n%s\n", s, err)
+			continue
+		}
+		success, err := spider.Enqueue(u)
+		if err != nil {
+			log.Printf("[Warning] Fail to push seed: %s\n%s\n", s, err)
+		} else if success {
+			log.Printf("[Info] Push seed: %s \n", s)
+		} else {
+			log.Printf("[Warning] Fail to push seed: %s\n", s)
+		}
+	}
+	spider.Run(config.Workers)
 }

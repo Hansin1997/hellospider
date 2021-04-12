@@ -1,4 +1,4 @@
-package main
+package core
 
 import (
 	redisbloom "github.com/RedisBloom/redisbloom-go"
@@ -21,16 +21,16 @@ type RedisBloomFilter struct {
 	filterName string
 }
 
-// 创建 Redis 布隆过滤器。
-//
-// host - Redis 主机，如："localhost:6379"
-//
-// name - Redis Client Name
-//
-// auth - 密码
-//
-// filterName - 过滤器名称
-func newRedisBloom(host string, name string, auth string, filterName string) RedisBloomFilter {
+/*
+创建 Redis 布隆过滤器。
+
+host - Redis 主机，如："localhost:6379"
+
+auth - 密码
+
+filterName - 过滤器名称
+*/
+func NewRedisBloom(host string, name string, auth string, filterName string) RedisBloomFilter {
 	filter := new(RedisBloomFilter)
 	filter.filterName = filterName
 	var au *string = nil

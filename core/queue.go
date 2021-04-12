@@ -1,4 +1,4 @@
-package main
+package core
 
 import (
 	"github.com/streadway/amqp"
@@ -19,7 +19,7 @@ type RbQueue struct {
 	channel      *amqp.Channel
 }
 
-func newRbQueue(url string, exchangeName string, queueName string, routingKey string, prefetchCount int) (*RbQueue, error) {
+func NewRbQueue(url string, exchangeName string, queueName string, routingKey string, prefetchCount int) (*RbQueue, error) {
 	conn, err := amqp.Dial(url)
 	if err != nil {
 		return nil, err

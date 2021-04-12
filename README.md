@@ -10,13 +10,13 @@
 $ go run . -h
 Usage of hello-spider:
   -config string
-        配置文件路径。 (default "config.json")
+        File path of configuration. (default "config.json")
   -namespace string
-        命名空间。（区分不同任务）
+        Namespace of task. (default "default")
   -reset
-        开始前清空数据。
+        Reset queue, storage and filter before begin task.
   -seed string
-        种子 URL。
+        The seeds URL is comma-separated. Such as: 'http://a.com/, http://b.com/'. And the seeds in the configuration file will be ignored.
 ```
 ### 配置文件
 修改配置文件 ```config.json``` 中各服务的地址、端口以及用户名及密码等。
@@ -26,7 +26,7 @@ Usage of hello-spider:
     "namespace": "default",
     "workers": 8,
     "seeds": [
-        "https://baidu.com/"
+        "https://bing.com/"
     ],
     "redis": {
         "host": "localhost:6379",

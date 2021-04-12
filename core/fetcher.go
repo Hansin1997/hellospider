@@ -1,4 +1,4 @@
-package main
+package core
 
 import (
 	"bufio"
@@ -34,7 +34,7 @@ type DefaultFetcher struct {
 	userAgents []string
 }
 
-func newDefaultFetcher(accepts []string, userAgents []string) DefaultFetcher {
+func NewDefaultFetcher(accepts []string, userAgents []string) DefaultFetcher {
 	return DefaultFetcher{accepts, userAgents}
 }
 

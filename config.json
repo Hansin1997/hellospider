@@ -2,7 +2,7 @@
     "namespace": "default",
     "workers": 8,
     "seeds": [
-        "https://baidu.com/"
+        "https://bing.com/"
     ],
     "redis": {
         "host": "instance-2:30005",
