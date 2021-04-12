@@ -60,8 +60,10 @@ func (q RbQueue) Publish(content string) error {
 		false,
 		false,
 		amqp.Publishing{
-			ContentType: "text/plain",
-			Body:        []byte(content),
+			ContentType:  "text/plain",
+			Body:         []byte(content),
+			DeliveryMode: 2,                    // 持久化
+			Priority:     GetPriority(content), // 优先级
 		})
 }
 

@@ -182,7 +182,7 @@ func (f DefaultFetcher) Fetch(targetUrl string) (doc *Document, urls []string, s
 				contentCharset = strings.ToLower(cs)
 			}
 		} else {
-			selections = gdoc.Find("meta[http-equiv='Content-Type']")
+			selections = gdoc.Find("meta[http-equiv='Content-Type'],meta[http-equiv='Content-type'],meta[http-equiv='content-type']")
 			if selections.Length() > 0 {
 				cs, exist := selections.First().Attr("content")
 				if exist && cs != "" {
