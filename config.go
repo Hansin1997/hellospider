@@ -6,14 +6,15 @@ import (
 )
 
 type Config struct {
-	Namespace     string              `json:"namespace"`
-	Redis         RedisBloomConfig    `json:"redis"`
-	RabbitMq      RabbitMqConfig      `json:"rabbitMq"`
-	Elasticsearch ElasticsearchConfig `json:"elasticsearch"`
-	Seeds         []string            `json:"seeds"`
-	UserAgents    []string            `json:"userAgents"`
-	Workers       int                 `json:"workers"`
-	Accepts       []string            `json:"accepts"`
+	Namespace       string              `json:"namespace"`
+	Redis           RedisBloomConfig    `json:"redis"`
+	RabbitMq        RabbitMqConfig      `json:"rabbitMq"`
+	Elasticsearch   ElasticsearchConfig `json:"elasticsearch"`
+	Seeds           []string            `json:"seeds"`
+	UserAgents      []string            `json:"userAgents"`
+	Workers         int                 `json:"workers"`
+	Accepts         []string            `json:"accepts"`
+	ResponseHeaders []string            `json:"responseHeaders"`
 }
 
 type RedisBloomConfig struct {

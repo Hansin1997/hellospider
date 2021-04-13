@@ -18,7 +18,7 @@ func initBloomFilter(config Config) core.BloomFilter {
 
 // 初始化抓取器
 func initFetcher(config Config) core.Fetcher {
-	return core.NewDefaultFetcher(config.Accepts, config.UserAgents)
+	return core.NewDefaultFetcher(config.Accepts, config.UserAgents, config.ResponseHeaders)
 }
 
 // 初始化消息队列

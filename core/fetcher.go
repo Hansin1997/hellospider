@@ -26,7 +26,6 @@ type Document struct {
 	Host           string
 	FetchAt        time.Time
 	ResponseHeader http.Header
-	RequestHeader  http.Header
 }
 
 type Fetcher interface {
@@ -34,12 +33,17 @@ type Fetcher interface {
 }
 
 type DefaultFetcher struct {
-	accepts    []string
-	userAgents []string
+	accepts         []string
+	userAgents      []string
+	responseHeaders map[string]bool
 }
 
-func NewDefaultFetcher(accepts []string, userAgents []string) DefaultFetcher {
-	return DefaultFetcher{accepts, userAgents}
+func NewDefaultFetcher(accepts []string, userAgents []string, responseHeader []string) DefaultFetcher {
+	headerSet := map[string]bool{}
+	for _, header := range responseHeader {
+		headerSet[header] = true
+	}
+	return DefaultFetcher{accepts, userAgents, headerSet}
 }
 
 func checkContentType(content_type string, accepts []string) (isAccept bool, conentCharset string) {
@@ -244,8 +248,7 @@ func (f DefaultFetcher) Fetch(targetUrl string) (doc *Document, urls []string, s
 	document.Description = strings.TrimSpace(gdoc.Find("meta[name='description']").AttrOr("content", ""))
 	document.Keywords = strings.TrimSpace(gdoc.Find("meta[name='description']").AttrOr("keywords", ""))
 
-	document.RequestHeader = resp.Request.Header
-	document.ResponseHeader = resp.Header
+	document.ResponseHeader = SelectHeader(resp.Header, f.responseHeaders)
 	document.FetchAt = time.Now()
 	document.Host = resp.Request.URL.Host
 	return document, next, true, nil
