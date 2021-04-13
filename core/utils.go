@@ -23,12 +23,14 @@ func GetPriority(content string) uint8 {
 	} else {
 		l = len(content)
 	}
-	if l > 512 {
+	if l > 128 {
 		return 0
+	} else if l <= 1 {
+		return 9
 	} else {
 		y := priorityFx(l)
-		if y > 9 {
-			y = 9
+		if y > 8 {
+			y = 8
 		} else if y < 0 {
 			y = 0
 		}
@@ -36,7 +38,7 @@ func GetPriority(content string) uint8 {
 	}
 }
 
-// 优先级函数 f(x)=𝑒^((−(𝑥−340))/50)/100
+// 优先级函数 f(x)=(𝑒^((−(𝑥−340))/50))/100
 func priorityFx(x int) int {
 	fx := math.Pow(math.E, -(float64(x)-340)/50.0) / 100.0
 	return int(math.Floor(0.5 + fx)) // 四舍五入

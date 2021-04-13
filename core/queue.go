@@ -36,7 +36,9 @@ func NewRbQueue(url string, exchangeName string, queueName string, routingKey st
 	if err != nil {
 		return nil, err
 	}
-	_, err = ch.QueueDeclare(queueName, true, false, false, false, nil)
+	_, err = ch.QueueDeclare(queueName, true, false, false, false, amqp.Table{
+		"x-max-priority": 10,
+	})
 	if err != nil {
 		return nil, err
 	}
