@@ -81,7 +81,7 @@ func getPriorityByUrlPathLength(content string) uint8 {
 	}
 }
 
-// 优先级函数 f(x)=(𝑒^((−(𝑥−340))/50))/100
+// 优先级函数 f(x)=(e^((-(x-340))/50))/100
 func priorityFx(x int) int {
 	fx := math.Pow(math.E, -(float64(x)-340)/50.0) / 100.0
 	return int(math.Floor(0.5 + fx)) // 四舍五入
