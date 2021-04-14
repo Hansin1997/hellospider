@@ -66,8 +66,8 @@ func main() {
 	configFile := flag.String("config", "config.json", "File path of configuration.")
 	seed := flag.String("seed", "", "The seeds URL is comma-separated. Such as: 'https://a.com/, https://b.com/'. And the seeds in the configuration file will be ignored.")
 	reset := flag.Bool("reset", false, "Reset queue, storage and filter before begin task.")
-	namespace := flag.String("namespace", "default", "Namespace of task.")
-	priority := flag.String("priority", "path-len", "Priority policy: 0-9 means that the priority is constant, url-len means that the priority is calculated according to the length of the URL (the shorter the priority), path-len means that the priority is calculated according to the length of the URL path (the shorter the priority).")
+	namespace := flag.String("namespace", "", "Namespace of task.")
+	priority := flag.String("priority", "", "Priority policy: 0-9 means that the priority is constant, url-len means that the priority is calculated according to the length of the URL (the shorter the priority), path-len means that the priority is calculated according to the length of the URL path (the shorter the priority).")
 
 	flag.Parse()
 	config, err := loadConfig(*configFile)
@@ -76,13 +76,13 @@ func main() {
 	}
 
 	ns := strings.TrimSpace(*namespace)
-	if ns != "" && ns != config.Namespace {
+	if config.Namespace == "" || ns != "" {
 		config.Namespace = ns
 	}
 	log.Printf("[Info] Using namespace [%s]\n", config.Namespace)
 
 	pty := strings.TrimSpace(*priority)
-	if pty != "" && pty != config.Priority {
+	if config.Priority == "" || pty != "" {
 		config.Priority = pty
 	}
 	log.Printf("[Info] Using priority policy [%s]\n", config.Priority)

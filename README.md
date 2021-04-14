@@ -45,17 +45,18 @@
 
 ```bash
 $ go run . -h
-Usage of hello-spider:
+Usage of hellospider:
   -config string
-    	File path of configuration. (default "config.json")
+        File path of configuration. (default "config.json")
   -namespace string
-    	Namespace of task. (default "default")
+        Namespace of task.
   -priority string
-    	Priority policy: 0-9 means that the priority is constant, url-len means that the priority is calculated according to the length of the URL (the shorter the priority), path-len means that the priority is calculated according to the length of the URL path (the shorter the priority). (default "path-len")
+        Priority policy: 0-9 means that the priority is constant, url-len means that the priority is calculated according to the length of the URL (the shorter the priority),
+path-len means that the priority is calculated according to the length of the URL path (the shorter the priority).
   -reset
-    	Reset queue, storage and filter before begin task.
+        Reset queue, storage and filter before begin task.
   -seed string
-    	The seeds URL is comma-separated. Such as: 'https://a.com/, https://b.com/'. And the seeds in the configuration file will be ignored.
+        The seeds URL is comma-separated. Such as: 'https://a.com/, https://b.com/'. And the seeds in the configuration file will be ignored.
 ```
 
 * ```-config``` 配置文件路径
