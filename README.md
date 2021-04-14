@@ -60,6 +60,7 @@ Usage of hello-spider:
 
 * ```-config``` 配置文件路径
 * ```-namespace``` 命名空间（区分不同任务）
+* ```-priority``` 优先级策略：0-9 表示优先级为常数，url-len 表示根据 URL 长度计算优先级（越短越优先），path-len 表示根据 URL 路径长度计算优先级（越短越优先）。
 * ```-reset``` 开始前是否重置命名空间
 * ```-seed``` 替换配置文件中的 URL 种子（英文逗号分隔）
 
