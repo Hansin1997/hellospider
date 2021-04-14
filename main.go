@@ -3,12 +3,11 @@ package main
 import (
 	"context"
 	"flag"
+	"hellospider/core"
 	"log"
 	"net/url"
 	"strings"
 	"time"
-
-	"hellospider/core"
 )
 
 // 初始化布隆过滤器
@@ -27,7 +26,9 @@ func initQueue(config Config) (core.Queue, error) {
 		config.RabbitMq.Exchange,
 		"spider-"+config.Namespace,
 		"spider/"+config.Namespace,
-		config.Workers*8)
+		config.Workers*8,
+		config.RabbitMq.MaxLength,
+		config.Priority)
 }
 
 // 初始化存储器
@@ -40,11 +41,7 @@ func initStorage(config Config) (core.Storage, error) {
 }
 
 // 初始化全部组件
-func initAll(config Config, namespace string) (spider *core.Spider, error error) {
-	namespace = strings.TrimSpace(namespace)
-	if namespace != "" && namespace != "default" {
-		config.Namespace = namespace
-	}
+func initAll(config Config) (spider *core.Spider, error error) {
 	filter := initBloomFilter(config)
 	fetcher := initFetcher(config)
 	queue, err := initQueue(config)
@@ -67,27 +64,40 @@ func initAll(config Config, namespace string) (spider *core.Spider, error error)
 func main() {
 
 	configFile := flag.String("config", "config.json", "File path of configuration.")
-	seed := flag.String("seed", "", "The seeds URL is comma-separated. Such as: 'http://a.com/, http://b.com/'. And the seeds in the configuration file will be ignored.")
+	seed := flag.String("seed", "", "The seeds URL is comma-separated. Such as: 'https://a.com/, https://b.com/'. And the seeds in the configuration file will be ignored.")
 	reset := flag.Bool("reset", false, "Reset queue, storage and filter before begin task.")
 	namespace := flag.String("namespace", "default", "Namespace of task.")
+	priority := flag.String("priority", "path-len", "Priority policy: 0-9 means that the priority is constant, url-len means that the priority is calculated according to the length of the URL (the shorter the priority), path-len means that the priority is calculated according to the length of the URL path (the shorter the priority).")
 
 	flag.Parse()
 	config, err := loadConfig(*configFile)
 	if err != nil {
 		log.Fatalf("[Error] Fail to load config!\n%s\n", err)
 	}
+
+	ns := strings.TrimSpace(*namespace)
+	if ns != "" && ns != config.Namespace {
+		config.Namespace = ns
+	}
+	log.Printf("[Info] Using namespace [%s]\n", config.Namespace)
+
+	pty := strings.TrimSpace(*priority)
+	if pty != "" && pty != config.Priority {
+		config.Priority = pty
+	}
+	log.Printf("[Info] Using priority policy [%s]\n", config.Priority)
+
 	if *reset {
 		for i := 5; i >= 0; i-- {
-			log.Printf("[Warining] ⚠ Reset flag is true, clear namespace [%s] in %d seconds. ⚠ ", *namespace, i)
+			log.Printf("[Warining] ⚠ Reset flag is true, clear namespace [%s] in %d seconds. ⚠ ", config.Namespace, i)
 			time.Sleep(time.Second)
 		}
 	}
 
-	spider, err := initAll(*config, *namespace)
+	spider, err := initAll(*config)
 	if err != nil {
 		log.Fatalf("[Error] Fail to initialize!\n%s\n", err)
 	}
-
 	if *reset {
 		err = spider.Reset()
 		if err != nil {

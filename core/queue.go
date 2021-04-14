@@ -1,6 +1,7 @@
 package core
 
 import (
+	"errors"
 	"github.com/streadway/amqp"
 )
 
@@ -17,9 +18,12 @@ type RbQueue struct {
 	RoutingKey   string
 	conn         *amqp.Connection
 	channel      *amqp.Channel
+	priorityFunc func(input string) uint8
 }
 
-func NewRbQueue(url string, exchangeName string, queueName string, routingKey string, prefetchCount int) (*RbQueue, error) {
+func NewRbQueue(url string, exchangeName string, queueName string, routingKey string,
+	prefetchCount int, maxLength int64,
+	priorityPolicy string) (*RbQueue, error) {
 	conn, err := amqp.Dial(url)
 	if err != nil {
 		return nil, err
@@ -38,6 +42,7 @@ func NewRbQueue(url string, exchangeName string, queueName string, routingKey st
 	}
 	_, err = ch.QueueDeclare(queueName, true, false, false, false, amqp.Table{
 		"x-max-priority": 10,
+		"x-max-length":   maxLength,
 	})
 	if err != nil {
 		return nil, err
@@ -46,12 +51,20 @@ func NewRbQueue(url string, exchangeName string, queueName string, routingKey st
 	if err != nil {
 		return nil, err
 	}
+	pfunc, err := GetPriorityFunc(priorityPolicy)
+	if err != nil {
+		return nil, err
+	}
+	if pfunc == nil {
+		return nil, errors.New("priority not found")
+	}
 	q := &RbQueue{
 		exchangeName,
 		queueName,
 		routingKey,
 		conn,
 		ch,
+		pfunc,
 	}
 	return q, nil
 }
@@ -64,8 +77,8 @@ func (q RbQueue) Publish(content string) error {
 		amqp.Publishing{
 			ContentType:  "text/plain",
 			Body:         []byte(content),
-			DeliveryMode: 2,                    // 持久化
-			Priority:     GetPriority(content), // 优先级
+			DeliveryMode: 2,                       // 持久化
+			Priority:     q.priorityFunc(content), // 优先级
 		})
 }
 
