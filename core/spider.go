@@ -3,19 +3,22 @@ package core
 import (
 	"log"
 	"net/url"
+	"regexp"
 	"strings"
 	"sync"
 )
 
-// 爬虫
+// Spider 爬虫
 type Spider struct {
 	Filter  BloomFilter
 	Queue   Queue
 	Fetcher Fetcher
 	Storage Storage
+	Allows  []regexp.Regexp
+	Forbid  []regexp.Regexp
 }
 
-// 重置任务
+// Reset 重置任务
 func (spider Spider) Reset() error {
 	_, err := spider.Filter.Clear()
 	if err != nil {
@@ -32,7 +35,7 @@ func (spider Spider) Reset() error {
 	return nil
 }
 
-// 开始或者继续任务
+// Run 开始或者继续任务
 func (spider Spider) Run(workers int) {
 	wg := sync.WaitGroup{}
 	for i := 0; i < workers; i++ {
@@ -40,7 +43,7 @@ func (spider Spider) Run(workers int) {
 		go func() {
 			defer wg.Done()
 			err := spider.Queue.Consume(func(content string) (bool, bool, error) {
-				if !CheckUrl(content) {
+				if !CheckUrl(content, spider.Allows, spider.Forbid) {
 					return true, false, nil
 				}
 				u, err := url.Parse(content)
@@ -65,7 +68,7 @@ func (spider Spider) Run(workers int) {
 				log.Printf("[Info] %s [%s]\n", target, doc.Title)
 				for _, newUrl := range urls {
 					newUrl := strings.TrimSpace(newUrl)
-					if !CheckUrl(newUrl) {
+					if !CheckUrl(newUrl, spider.Allows, spider.Forbid) {
 						continue
 					}
 					nu, err := url.Parse(newUrl)
@@ -92,11 +95,11 @@ func (spider Spider) Run(workers int) {
 	wg.Wait()
 }
 
-// 将 URL 入队
+// Enqueue 将 URL 入队
 func (spider Spider) Enqueue(target *url.URL) (success bool, err error) {
 	newKey := computeKey(target)
 	newUrl := computeUrl(target)
-	if !CheckUrl(newUrl) {
+	if !CheckUrl(newUrl, spider.Allows, spider.Forbid) {
 		return false, nil
 	}
 	exists, err := spider.Filter.Exists(newKey) // 检查是否存在
