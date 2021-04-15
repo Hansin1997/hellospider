@@ -48,6 +48,7 @@
     "Content-Length",
     "Content-Language",
     "Server",
-    "X-Powered-By"
+    "X-Powered-By",
+    "Last-Modified"
   ]
 }

@@ -2,6 +2,10 @@
 
 基于 ```Go``` 语言的分布式网页爬虫。
 
+*爬取数据后可使用 
+[Hello Search](https://github.com/Hansin1997/hellosearch)
+进行搜索。*
+
 ## 简介
 
 > 此项目初衷在于学习 ```Go``` 语言以及 ```Elasticsearch``` 。
