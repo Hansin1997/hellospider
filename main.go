@@ -6,6 +6,7 @@ import (
 	"hellospider/core"
 	"log"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -42,6 +43,32 @@ func initStorage(config Config) (core.Storage, error) {
 
 // 初始化全部组件
 func initAll(config Config) (spider *core.Spider, error error) {
+
+	var allows []regexp.Regexp
+	if len(config.Rules.Allows) != 0 {
+		allows = make([]regexp.Regexp, 0, len(config.Rules.Allows))
+		for _, a := range config.Rules.Allows {
+			r, err := regexp.Compile(a)
+			if err != nil {
+				return nil, err
+			}
+			log.Printf("[Info] Allow: %s\n", a)
+			allows = append(allows, *r)
+		}
+	}
+	var forbid []regexp.Regexp
+	if len(config.Rules.Forbid) != 0 {
+		allows = make([]regexp.Regexp, 0, len(config.Rules.Forbid))
+		for _, f := range config.Rules.Forbid {
+			r, err := regexp.Compile(f)
+			if err != nil {
+				return nil, err
+			}
+			log.Printf("[Info] Forbid: %s\n", f)
+			forbid = append(forbid, *r)
+		}
+	}
+
 	filter := initBloomFilter(config)
 	fetcher := initFetcher(config)
 	queue, err := initQueue(config)
@@ -52,12 +79,15 @@ func initAll(config Config) (spider *core.Spider, error error) {
 	if err != nil {
 		return nil, err
 	}
+
 	log.Println("[Info] Finish initialize.")
 	return &core.Spider{
 		Filter:  filter,
 		Queue:   queue,
 		Storage: storage,
 		Fetcher: fetcher,
+		Allows:  allows,
+		Forbid:  forbid,
 	}, nil
 }
 
